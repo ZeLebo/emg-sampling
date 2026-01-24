@@ -3,20 +3,22 @@ name = "emg-sampling"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+
+# ВАЖНО: фиксируем совместимый диапазон
+requires-python = ">=3.12,<3.13"
+
 dependencies = [
-    "ipykernel>=7.2.0",
-    "matplotlib>=3.10.8",
-    "numpy>=2.4.2",
-    "pandas>=3.0.1",
-    "scikit-learn>=1.8.0",
-    "scipy>=1.17.0",
-    "torch>=2.10.0",
-    "tqdm>=4.67.3",
-    "wfdb>=4.3.1",
+    "matplotlib>=3.8,<4",
+    "numpy>=1.26,<3",
+    "pandas>=2.2,<3",
+    "scikit-learn>=1.4,<2",
+    "scipy>=1.11,<2",
+    "torch>=2.5.1",
+    "tqdm>=4.66,<5",
+    "wfdb>=4.1,<5",
 ]
 
 [dependency-groups]
 dev = [
-    "ipykernel>=7.2.0",
+    "ipykernel>=6.29,<7",
 ]
