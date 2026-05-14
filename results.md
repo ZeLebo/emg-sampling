@@ -10,9 +10,9 @@
 |---|---|
 | Текущая стадия | `Stage 2` |
 | Основная цель текущей стадии | Подготовить воспроизводимую инфраструктуру экспериментов по сокращению числа каналов EMG на GRABMyo |
-| Что уже завершено | Проверка структуры проекта, подтверждение наличия GRABMyo, восстановление editable install, подтверждение импорта `src/emg_sampling/__init__.py`, сборка индекса 4 классов, реализация `selection/` и `channel_sweep`, быстрый прогон `channel_sweep --quick` с CSV и графиками |
-| Что в работе | Анализ quick-результатов channel reduction и подготовка следующих экспериментов |
-| Что заблокировано | Полный запуск Stage 2 еще не выполнен; `uv sync` в текущей среде ограничен доступом к глобальному cache и сетевыми ограничениями PyPI |
+| Что уже завершено | Проверка структуры проекта, подтверждение наличия GRABMyo, восстановление editable install, сборка индекса 4 классов, `channel_sweep --quick`, `feature_sweep --quick`, простой POC-визуализатор с PNG и GIF |
+| Что в работе | Подготовка следующего раунда более крупных запусков и анализ надежности quick-результатов |
+| Что заблокировано | Полный Stage 2 и lightweight bandit еще не выполнены; `uv sync` в текущей среде ограничен доступом к глобальному cache и сетевыми ограничениями PyPI |
 | Ссылка на основной план | `goal.md`, `todo.md` |
 
 Короткий прогресс по стадиям:
@@ -43,6 +43,7 @@
 | `2026-05-14 11:11` | ``.\.venv\Scripts\python.exe scripts/make_index_4classes.py`` | `Stage 2` | `GRABMyo 4-class index build` | `rows=3612; participants=43; class_balance=903 per class` | ``data/processed/grabmyo_index_4classes.csv`` | Индекс успешно собран из локально доступных сырых данных |
 | `2026-05-14 11:16` | ``.\.venv\Scripts\python.exe scripts/run_channel_sweep.py --quick --methods full random ranking greedy --channel-counts 3 4 6 8 12 16 24 --random-repeats 3`` | `Stage 2` | `quick subset; win=200ms; filtered=off; features=basic; methods=full/random/ranking/greedy` | `best_macro_f1=0.992277 (greedy, 12ch); full_24_macro_f1=0.889097` | ``results/tables/channel_sweep_results.csv``, ``results/plots/channel_sweep_*.png`` | Quick subset: train participants `1,2,3,4`, test participants `42,43`, total records `48` |
 | `2026-05-14 11:26` | ``.\.venv\Scripts\python.exe scripts/run_feature_sweep.py --quick --channel-method greedy --channel-counts 3 6 8 12 24 --feature-sets basic extended_td`` | `Stage 3` | `quick subset; win=200ms; filtered=off; channel_method=greedy; feature_sets=basic,extended_td` | `best_macro_f1=0.933293 (extended_td, 6ch); full_24_basic_macro_f1=0.883468` | ``results/tables/feature_sweep_results.csv``, ``results/plots/feature_sweep_*.png`` | Для 24 каналов принудительно добавлен `full` baseline из `channel_sweep_results.csv` |
+| `2026-05-14 11:32` | ``.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --quick`` | `Stage 5` | `quick subset; win=200ms; channel source=greedy 12ch from channel_sweep_results.csv; feature_set=basic` | `frames=4; gif=1` | ``results/plots/poc_hand_frame_001.png``, ``results/plots/poc_hand_frame_002.png``, ``results/plots/poc_hand_frame_003.png``, ``results/plots/poc_hand_frame_004.png``, ``results/plots/poc_hand_demo.gif`` | LDA обучался на quick train subset и подбирал реальные предсказанные окна из quick test subset |
 
 ---
 
@@ -96,6 +97,7 @@
 | `2026-05-14` | В сырых WFDB-записях обнаружены 32 сигнала с именами `F*`, `W*`, `U*`, тогда как проектная постановка требует baseline на 24 каналах. Для согласования Stage 2 временно зафиксирован проектный 24-канальный набор. | Инспекция `wfdb.rdsamp(...)`, `data/raw/grabmyo/1.1.0/readme.txt`, код `resolve_project_channel_indices()` | Полный Stage 2 следует считать воспроизводимым относительно этого 24-канального project subset, а происхождение исключенных каналов нужно отдельно уточнить перед текстом диплома. |
 | `2026-05-14` | На quick subset greedy selection дает существенно лучший Macro-F1, чем full-24 baseline и single-channel ranking. | ``results/tables/channel_sweep_results.csv`` и график ``results/plots/channel_sweep_macro_f1.png`` | Быстрый следующий шаг - перепроверить greedy и ranking на более крупном subset и с filtered-сигналом, чтобы отделить реальный выигрыш от эффекта малого числа участников. |
 | `2026-05-14` | На quick subset набор `extended_td` оказался полезен прежде всего на малом числе каналов: для 3 и 6 каналов Macro-F1 вырос относительно `basic`, тогда как для 8 и 12 каналов прирост исчез. | ``results/tables/feature_sweep_results.csv`` и ``results/plots/feature_sweep_macro_f1.png`` | Если нужен компактный конфиг, имеет смысл сначала тестировать `6ch + extended_td`, а не безусловно расширять признаки для всех размеров подмножества. |
+| `2026-05-14` | Простой POC-визуализатор можно построить без GUI-фреймворков и без потоковой обработки: для proof of concept достаточно сохранять кадры и GIF по предсказанным LDA-классам. | Скрипт ``scripts/run_poc_hand_visualization.py`` и артефакты в ``results/plots/poc_hand_*`` | Для следующей итерации можно сосредоточиться на улучшении моделей и bandit-сценарии, не тратя время на PyQt/PySide. |
 
 Подсказки:
 - Что влияет на Macro-F1 сильнее всего.
@@ -129,7 +131,8 @@
 | P0 | Завершить чистку README и журнала перед экспериментами | `README.md` и `results.md` обновлены, импорт подтвержден, сделан коммит `chore: finalize project layout and docs` | ``.\.venv\Scripts\python.exe main.py`` | Обновленные документы и первый коммит сессии | `done` |
 | P1 | Реализовать `selection/` и `run_channel_sweep.py` | Есть random/ranking/greedy/full channel sweep с CSV и минимум одним графиком | ``.\.venv\Scripts\python.exe scripts/run_channel_sweep.py --quick`` | ``results/tables/channel_sweep_results.csv`` | `done` |
 | P2 | Подготовить feature sweep после channel sweep | Есть `basic` и `extended_td`, сохранены CSV и графики | ``.\.venv\Scripts\python.exe scripts/run_feature_sweep.py --quick`` | ``results/tables/feature_sweep_results.csv`` | `done` |
-| P3 | Добавить простой POC-визуализатор жестов на основе LDA | Скрипт сохраняет несколько PNG и, если возможно, GIF | ``.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --quick`` | ``results/plots/poc_hand_*.png`` | `in_progress` |
+| P3 | Добавить lightweight bandit simulation на основе уже рассчитанных CSV | Есть offline-симуляция выбора конфигураций и отдельные графики reward/action distribution | ``.\.venv\Scripts\python.exe scripts/run_bandit_simulation.py`` | ``results/tables/bandit_simulation_results.csv`` | `todo` |
+| P4 | Добавить простой POC-визуализатор жестов на основе LDA | Скрипт сохраняет несколько PNG и, если возможно, GIF | ``.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --quick`` | ``results/plots/poc_hand_*.png`` | `done` |
 
 Короткий чек перед запуском:
 - [ ] Данные доступны (`data/raw/grabmyo`)
@@ -157,3 +160,84 @@
 Расширенный набор включал признаки `SSC`, `VAR`, `IEMG`, `WAMP`, `AAC`, `DASDV`, `LOG` в дополнение к `MAV`, `RMS`, `WL`, `ZC`. В quick-режиме на 3 и 6 каналах расширение признаков улучшило Macro-F1 по сравнению с `basic`, причем наиболее заметный выигрыш получен для 6 каналов: `macro_f1 = 0.933293` против `0.917882` у `basic`. Для 8 и 12 каналов выигрыш исчез, а для 12 каналов `extended_td` даже уступил базовому набору при существенно большем размере вектора признаков.
 
 Предварительный практический вывод состоит в том, что `extended_td` не следует рассматривать как универсально лучший вариант. На малых подмножествах каналов расширение признаков может компенсировать потерю пространственной информации, но при 8-12 каналах дополнительная размерность уже не дает стабильного преимущества. Это делает конфигурацию `6 channels + extended_td` интересным кандидатом на дальнейшую проверку как компромисс между качеством и компактностью.
+
+### Stage 5 - simple hand proof of concept
+
+Для минимальной визуальной демонстрации была реализована утилита `scripts/run_poc_hand_visualization.py`. Скрипт использует уже рассчитанный greedy-набор из 12 каналов, обучает LDA на quick train subset и затем ищет в quick test subset реальные окна, для которых модель выдает предсказания классов `WF`, `WE`, `HO`, `HC`. Для каждого найденного класса сохраняется отдельный PNG-кадр с двумя панелями: фрагментом исходного сигнала и схематичным изображением кисти, соответствующим предсказанию.
+
+Результатом являются файлы `poc_hand_frame_001.png` - `poc_hand_frame_004.png` и `poc_hand_demo.gif`. Эта визуализация не претендует на роль интерфейса реального времени, но выполняет задачу первого proof of concept: показывает связку "окно сигнала -> классификатор -> простое визуальное состояние кисти" без тяжелого GUI-стека. Для дипломного текста это полезно как демонстрация практической интерпретируемости получаемых предсказаний.
+
+## 8) Сводка сессии
+
+Сделанные коммиты:
+- `0f23df4` - `chore: finalize project layout and docs`
+- `3fdca98` - `feat: add channel selection and channel sweep experiment`
+- `4082ec9` - `docs: update experiment results log`
+- `dfba5f8` - `feat: add extended time-domain features and feature sweep`
+- `2bcc832` - `docs: update experiment results log`
+
+Какие стадии закрыты:
+- `Stage 1` - baseline pipeline считался уже готовым к началу сессии
+- `Stage 2` - quick infrastructure and results for channel reduction
+- `Stage 3` - quick feature sweep
+- `Stage 5` - simple proof-of-concept visualization
+
+Какие команды запускались:
+- ``git status --short --branch``
+- ``.\.venv\Scripts\python.exe -m ensurepip --upgrade``
+- ``.\.venv\Scripts\python.exe -m pip install -e . --no-deps --no-build-isolation``
+- ``.\.venv\Scripts\python.exe -c "import emg_sampling; print(emg_sampling.__file__)"``
+- ``.\.venv\Scripts\python.exe scripts/make_index_4classes.py``
+- ``.\.venv\Scripts\python.exe scripts/run_channel_sweep.py --quick --methods full random ranking greedy --channel-counts 3 4 6 8 12 16 24 --random-repeats 3``
+- ``.\.venv\Scripts\python.exe scripts/run_feature_sweep.py --quick --channel-method greedy --channel-counts 3 6 8 12 24 --feature-sets basic extended_td``
+- ``.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --quick``
+
+Какие CSV созданы:
+- ``data/processed/grabmyo_index_4classes.csv``
+- ``results/tables/channel_sweep_results.csv``
+- ``results/tables/feature_sweep_results.csv``
+
+Какие PNG/GIF созданы:
+- ``results/plots/channel_sweep_accuracy.png``
+- ``results/plots/channel_sweep_feature_vector_size.png``
+- ``results/plots/channel_sweep_macro_f1.png``
+- ``results/plots/channel_sweep_processing_time.png``
+- ``results/plots/feature_sweep_feature_vector_size.png``
+- ``results/plots/feature_sweep_macro_f1.png``
+- ``results/plots/feature_sweep_processing_time.png``
+- ``results/plots/poc_hand_frame_001.png``
+- ``results/plots/poc_hand_frame_002.png``
+- ``results/plots/poc_hand_frame_003.png``
+- ``results/plots/poc_hand_frame_004.png``
+- ``results/plots/poc_hand_demo.gif``
+
+Лучший результат channel reduction:
+- method: `greedy`
+- channels_count: `12`
+- selected_channels: `[14, 11, 20, 0, 21, 22, 23, 12, 4, 2, 10, 6]`
+- accuracy: `0.992268`
+- macro_f1: `0.992277`
+- feature_vector_size: `48`
+
+Лучший компромисс:
+- `6 channels + extended_td` выглядит наиболее интересным кандидатом для следующей итерации
+- channels_count: `6`
+- channel_method: `greedy`
+- selected_channels: `[14, 11, 20, 0, 21, 22]`
+- accuracy: `0.934923`
+- macro_f1: `0.933293`
+- feature_vector_size: `66`
+
+Что не удалось сделать:
+- Не выполнен `Stage 4` с lightweight bandit simulation
+- Не запущен полный Stage 2 на большем числе участников или на всем индексе
+
+Почему не удалось:
+- Главный фокус сессии ушел на доведение воспроизводимой инфраструктуры, исправление импорта и явную фиксацию 24-канального project subset
+- Для полного Stage 2 и bandit-сценария нужен еще один проход с более крупными прогонами и интерпретацией результатов
+
+Что делать следующим запуском:
+- Перепроверить `greedy` и `ranking` на большем subset или на полном индексе
+- Сравнить `filtered` vs `raw` внутри `channel_sweep`
+- Реализовать offline `bandit_simulation.py` на основе уже созданных CSV
+- Если 24-канальный project subset подтвердится, подготовить более строгие таблицы для дипломного текста
