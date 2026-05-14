@@ -12,6 +12,7 @@ from emg_sampling.paths import CHANNEL_SWEEP_CSV, INDEX_4CLASSES_CSV
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run GRABMyo channel-reduction sweep.")
     parser.add_argument("--quick", action="store_true", help="Use a small subset of records for fast verification.")
+    parser.add_argument("--medium", action="store_true", help="Use a medium-scale fixed participant split.")
     parser.add_argument("--window-ms", type=float, default=200.0, help="Sliding window size in milliseconds.")
     parser.add_argument("--filtered", action="store_true", help="Apply notch + bandpass preprocessing before features.")
     parser.add_argument(
@@ -54,6 +55,7 @@ def main() -> None:
         random_repeats=args.random_repeats,
         max_greedy_channels=args.max_greedy_channels,
         quick=args.quick,
+        medium=args.medium,
         output_csv=args.output,
     )
     print(result.to_string(index=False))

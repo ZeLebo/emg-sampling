@@ -58,6 +58,8 @@ BANDPASS_ORDER = 4
 N_TEST_PARTICIPANTS = 2
 NOISE_BASE_SEED = 123
 
+SPLIT_MODES = ("quick", "medium", "full")
+
 
 def resolve_project_channel_indices(total_channels: int) -> tuple[int, ...]:
     """Returns the default project channel subset for a GRABMyo record."""

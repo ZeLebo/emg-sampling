@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from emg_sampling.config import DEFAULT_WINDOW_MS, HOP_FRACTION, N_TEST_PARTICIPANTS, resolve_project_channel_indices
+from emg_sampling.config import DEFAULT_WINDOW_MS, HOP_FRACTION, SPLIT_MODES, resolve_project_channel_indices
 from emg_sampling.data.grabmyo_loader import load_index, read_record
-from emg_sampling.data.split import split_by_participants
+from emg_sampling.data.split import ParticipantSplit, make_leakage_safe_split
 from emg_sampling.experiments.common import build_feature_matrix
 from emg_sampling.features.time_domain import BASIC_TD_FEATURE_NAMES, extract_td_features, get_feature_column_indices, sliding_windows
 from emg_sampling.models.lda_baseline import evaluate_classifier, train_lda
@@ -25,26 +25,12 @@ DEFAULT_CHANNEL_COUNTS = (3, 4, 6, 8, 12, 16, 24)
 DEFAULT_METHODS = ("full", "random", "ranking", "greedy")
 DEFAULT_RANDOM_REPEATS = 5
 DEFAULT_MAX_GREEDY_CHANNELS = 16
+SELECTION_METRIC = "macro_f1"
+FINAL_METRIC = "macro_f1"
 
 
-def _participants_string(df: pd.DataFrame) -> str:
-    return ",".join(str(participant) for participant in sorted(df["participant"].unique()))
-
-
-def _make_quick_subset(train_df: pd.DataFrame, test_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Creates a small but class-balanced subset for quick experiments."""
-    quick_train = (
-        train_df[train_df["participant"].isin(sorted(train_df["participant"].unique())[:4])]
-        .groupby(["participant", "class"], as_index=False, sort=True)
-        .head(2)
-        .reset_index(drop=True)
-    )
-    quick_test = (
-        test_df.groupby(["participant", "class"], as_index=False, sort=True)
-        .head(2)
-        .reset_index(drop=True)
-    )
-    return quick_train, quick_test
+def _participants_string(participants: Sequence[int]) -> str:
+    return ",".join(str(participant) for participant in participants)
 
 
 def _evaluate_feature_subset(
@@ -119,20 +105,24 @@ def _plot_metric(df: pd.DataFrame, metric: str, title: str, ylabel: str, output_
     plt.close(fig)
 
 
-def save_channel_sweep_plots(df: pd.DataFrame, plots_dir: Path = PLOTS_DIR) -> list[Path]:
+def save_channel_sweep_plots(
+    df: pd.DataFrame,
+    plots_dir: Path = PLOTS_DIR,
+    prefix: str = "channel_sweep",
+) -> list[Path]:
     """Saves the standard channel-sweep summary plots."""
     plots_dir.mkdir(parents=True, exist_ok=True)
     outputs = [
-        (plots_dir / "channel_sweep_macro_f1.png", "macro_f1", "Channel sweep - Macro-F1", "Macro-F1"),
-        (plots_dir / "channel_sweep_accuracy.png", "accuracy", "Channel sweep - Accuracy", "Accuracy"),
+        (plots_dir / f"{prefix}_macro_f1.png", "macro_f1", "Channel sweep - Macro-F1", "Macro-F1"),
+        (plots_dir / f"{prefix}_accuracy.png", "accuracy", "Channel sweep - Accuracy", "Accuracy"),
         (
-            plots_dir / "channel_sweep_feature_vector_size.png",
+            plots_dir / f"{prefix}_feature_vector_size.png",
             "feature_vector_size",
             "Channel sweep - Feature vector size",
             "Features",
         ),
         (
-            plots_dir / "channel_sweep_processing_time.png",
+            plots_dir / f"{prefix}_processing_time.png",
             "processing_time_ms",
             "Channel sweep - Processing time",
             "Processing time per window (ms)",
@@ -141,6 +131,31 @@ def save_channel_sweep_plots(df: pd.DataFrame, plots_dir: Path = PLOTS_DIR) -> l
     for output_path, metric, title, ylabel in outputs:
         _plot_metric(df=df, metric=metric, title=title, ylabel=ylabel, output_path=output_path)
     return [output_path for output_path, *_rest in outputs]
+
+
+def _selection_score_for_channels(
+    X_train_selection: np.ndarray,
+    y_train_selection: np.ndarray,
+    X_val_selection: np.ndarray,
+    y_val_selection: np.ndarray,
+    total_channels: int,
+    selected_channels: Sequence[int],
+) -> dict[str, float]:
+    return _evaluate_feature_subset(
+        X_train_full=X_train_selection,
+        y_train=y_train_selection,
+        X_test_full=X_val_selection,
+        y_test=y_val_selection,
+        total_channels=total_channels,
+        selected_channels=selected_channels,
+    )
+
+
+def _build_split(mode: str, index_csv: Path) -> ParticipantSplit:
+    df = load_index(index_csv)
+    if mode not in SPLIT_MODES:
+        raise ValueError(f"Unknown split mode: {mode}")
+    return make_leakage_safe_split(df, mode=mode)
 
 
 def run_channel_sweep(
@@ -153,34 +168,54 @@ def run_channel_sweep(
     random_repeats: int = DEFAULT_RANDOM_REPEATS,
     max_greedy_channels: int = DEFAULT_MAX_GREEDY_CHANNELS,
     quick: bool = False,
+    medium: bool = False,
     output_csv: Path = CHANNEL_SWEEP_CSV,
+    plot_prefix: str = "channel_sweep",
 ) -> pd.DataFrame:
     """Runs channel-reduction sweep and saves the results table."""
     ensure_project_dirs()
 
-    df = load_index(index_csv)
-    train_df, test_df = split_by_participants(df, n_test_participants=N_TEST_PARTICIPANTS)
-    if quick:
-        train_df, test_df = _make_quick_subset(train_df, test_df)
+    if quick and medium:
+        raise ValueError("Use only one of quick or medium modes.")
 
-    X_train_full, y_train, _, _ = build_feature_matrix(
-        train_df,
+    split_mode = "quick" if quick else "medium" if medium else "full"
+    split = _build_split(split_mode, index_csv=index_csv)
+
+    X_selection_train, y_selection_train, _, _ = build_feature_matrix(
+        split.selection_train_df,
         win_ms=win_ms,
         hop_fraction=hop_fraction,
         filtered=filtered,
     )
-    X_test_full, y_test, _, _ = build_feature_matrix(
-        test_df,
+    X_selection_val, y_selection_val, _, _ = build_feature_matrix(
+        split.selection_val_df,
+        win_ms=win_ms,
+        hop_fraction=hop_fraction,
+        filtered=filtered,
+    )
+    X_final_train, y_final_train, _, _ = build_feature_matrix(
+        split.final_train_df,
+        win_ms=win_ms,
+        hop_fraction=hop_fraction,
+        filtered=filtered,
+    )
+    X_final_test, y_final_test, _, _ = build_feature_matrix(
+        split.final_test_df,
         win_ms=win_ms,
         hop_fraction=hop_fraction,
         filtered=filtered,
     )
 
-    if X_train_full.size == 0 or X_test_full.size == 0:
-        raise ValueError("Feature matrices are empty. Check the index or quick subset settings.")
+    if (
+        X_selection_train.size == 0
+        or X_selection_val.size == 0
+        or X_final_train.size == 0
+        or X_final_test.size == 0
+    ):
+        raise ValueError("Feature matrices are empty. Check the index or split settings.")
 
     features_per_channel = len(BASIC_TD_FEATURE_NAMES)
-    total_channels = X_train_full.shape[1] // features_per_channel
+    total_channels = X_selection_train.shape[1] // features_per_channel
     if total_channels <= 0:
         raise ValueError("Could not infer total number of channels from feature matrix.")
 
@@ -195,61 +230,88 @@ def run_channel_sweep(
         raise ValueError(f"Unknown methods: {sorted(unknown_methods)}")
 
     ranking_df = rank_channels_by_macro_f1(
-        X_train=X_train_full,
-        y_train=y_train,
-        X_test=X_test_full,
-        y_test=y_test,
+        X_train=X_selection_train,
+        y_train=y_selection_train,
+        X_test=X_selection_val,
+        y_test=y_selection_val,
         total_channels=total_channels,
     )
     ranking_order = ranking_df["channel_idx"].astype(int).tolist()
 
     greedy_df = greedy_channel_order(
-        X_train=X_train_full,
-        y_train=y_train,
-        X_test=X_test_full,
-        y_test=y_test,
+        X_train=X_selection_train,
+        y_train=y_selection_train,
+        X_test=X_selection_val,
+        y_test=y_selection_val,
         total_channels=total_channels,
         max_channels=min(max_greedy_channels, total_channels),
     )
     greedy_order = [int(channel) for channel in greedy_df["added_channel"].tolist()]
 
-    records_count = int(len(train_df) + len(test_df))
-    train_participants = _participants_string(train_df)
-    test_participants = _participants_string(test_df)
+    records_count = int(
+        len(split.selection_train_df) + len(split.selection_val_df) + len(split.final_test_df)
+    )
+    selection_train_participants = _participants_string(split.selection_train_participants)
+    selection_val_participants = _participants_string(split.selection_val_participants)
+    final_test_participants = _participants_string(split.final_test_participants)
+    train_participants = _participants_string(split.final_train_df["participant"].unique())
 
     rows: list[dict[str, float | int | str | bool]] = []
 
-    def append_row(method: str, channels_count: int, selected_channels: list[int], random_repeat: int | None = None) -> None:
-        metrics = _evaluate_feature_subset(
-            X_train_full=X_train_full,
-            y_train=y_train,
-            X_test_full=X_test_full,
-            y_test=y_test,
+    def append_row(
+        method: str,
+        channels_count: int,
+        selected_channels: list[int],
+        random_repeat: int | None = None,
+    ) -> None:
+        selection_metrics = _selection_score_for_channels(
+            X_train_selection=X_selection_train,
+            y_train_selection=y_selection_train,
+            X_val_selection=X_selection_val,
+            y_val_selection=y_selection_val,
+            total_channels=total_channels,
+            selected_channels=selected_channels,
+        )
+        final_metrics = _evaluate_feature_subset(
+            X_train_full=X_final_train,
+            y_train=y_final_train,
+            X_test_full=X_final_test,
+            y_test=y_final_test,
             total_channels=total_channels,
             selected_channels=selected_channels,
         )
         processing_time_ms = _estimate_processing_time_ms(
-            records_df=test_df,
+            records_df=split.final_test_df,
             win_ms=win_ms,
             hop_fraction=hop_fraction,
             filtered=filtered,
             selected_channels=selected_channels,
         )
         row: dict[str, float | int | str | bool] = {
+            "split_mode": split_mode,
             "method": method,
             "channels_count": channels_count,
             "selected_channels": str(selected_channels),
             "window_ms": float(win_ms),
             "filtering": bool(filtered),
             "feature_set": "basic",
-            "accuracy": float(metrics["accuracy"]),
-            "macro_f1": float(metrics["macro_f1"]),
+            "accuracy": float(final_metrics["accuracy"]),
+            "macro_f1": float(final_metrics["macro_f1"]),
             "processing_time_ms": processing_time_ms,
             "feature_vector_size": int(channels_count * features_per_channel),
             "records_count": records_count,
             "train_participants": train_participants,
-            "test_participants": test_participants,
-            "quick_mode": bool(quick),
+            "test_participants": final_test_participants,
+            "selection_train_participants": selection_train_participants,
+            "selection_val_participants": selection_val_participants,
+            "final_test_participants": final_test_participants,
+            "selection_metric": SELECTION_METRIC,
+            "final_metric": FINAL_METRIC,
+            "selection_score_accuracy": float(selection_metrics["accuracy"]),
+            "selection_score_macro_f1": float(selection_metrics["macro_f1"]),
+            "selection_uses_test": False,
+            "quick_mode": split_mode == "quick",
+            "medium_mode": split_mode == "medium",
             "random_repeat": random_repeat if random_repeat is not None else -1,
         }
         rows.append(row)
@@ -284,5 +346,5 @@ def run_channel_sweep(
     )
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     out_df.to_csv(output_csv, index=False)
-    save_channel_sweep_plots(out_df, plots_dir=PLOTS_DIR)
+    save_channel_sweep_plots(out_df, plots_dir=PLOTS_DIR, prefix=plot_prefix)
     return out_df.reset_index(drop=True)
