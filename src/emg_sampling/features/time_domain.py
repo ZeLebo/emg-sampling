@@ -6,6 +6,8 @@ from collections.abc import Iterator
 
 import numpy as np
 
+BASIC_TD_FEATURE_NAMES = ("mav", "rms", "wl", "zc")
+
 
 def sliding_windows(
     x: np.ndarray,
@@ -60,3 +62,21 @@ def extract_td_features(window: np.ndarray) -> np.ndarray:
     zc = np.sum((s1 * s2) < 0, axis=0)
 
     return np.concatenate([mav, rms, wl, zc], axis=0).astype(np.float32, copy=False)
+
+
+def get_feature_column_indices(
+    channel_indices: list[int] | tuple[int, ...],
+    total_channels: int,
+    feature_names: tuple[str, ...] = BASIC_TD_FEATURE_NAMES,
+) -> np.ndarray:
+    """Returns column indices for selected channels in flattened TD feature matrix."""
+    indices: list[int] = []
+    for feature_idx, _feature_name in enumerate(feature_names):
+        offset = feature_idx * total_channels
+        for channel_idx in channel_indices:
+            if channel_idx < 0 or channel_idx >= total_channels:
+                raise ValueError(
+                    f"Channel index {channel_idx} is out of range for {total_channels} channels"
+                )
+            indices.append(offset + channel_idx)
+    return np.array(indices, dtype=np.int64)

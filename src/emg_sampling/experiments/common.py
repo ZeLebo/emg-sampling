@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
 
+from emg_sampling.config import resolve_project_channel_indices
 from emg_sampling.features.time_domain import extract_td_features, sliding_windows
 from emg_sampling.models.lda_baseline import evaluate_classifier, train_lda
 from emg_sampling.preprocessing.filters import preprocess_signal
@@ -18,6 +20,7 @@ def build_feature_matrix(
     win_ms: float,
     hop_fraction: float,
     filtered: bool = False,
+    channel_indices: Sequence[int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Builds feature matrix and labels from record index.
 
@@ -26,6 +29,7 @@ def build_feature_matrix(
         win_ms: Window length in milliseconds.
         hop_fraction: Fraction of window used as hop.
         filtered: If True applies preprocessing before windowing.
+        channel_indices: Optional channel subset to keep before feature extraction.
 
     Returns:
         X: Feature matrix.
@@ -48,6 +52,12 @@ def build_feature_matrix(
 
     for row in records_df.itertuples(index=False):
         signal, fs = read_record(row.record_path)
+        active_channels = (
+            tuple(channel_indices)
+            if channel_indices is not None
+            else resolve_project_channel_indices(signal.shape[1])
+        )
+        signal = signal[:, active_channels]
 
         if filtered:
             t0 = time.perf_counter()
@@ -90,6 +100,7 @@ def evaluate_split(
     win_ms: float,
     hop_fraction: float,
     filtered: bool,
+    channel_indices: Sequence[int] | None = None,
 ) -> dict[str, float | int | str | bool]:
     """Runs one train/test evaluation for selected parameters."""
     X_train, y_train, _, _ = build_feature_matrix(
@@ -97,12 +108,14 @@ def evaluate_split(
         win_ms=win_ms,
         hop_fraction=hop_fraction,
         filtered=filtered,
+        channel_indices=channel_indices,
     )
     X_test, y_test, feat_times, preprocess_times_ms = build_feature_matrix(
         test_df,
         win_ms=win_ms,
         hop_fraction=hop_fraction,
         filtered=filtered,
+        channel_indices=channel_indices,
     )
 
     row: dict[str, float | int | str | bool] = {

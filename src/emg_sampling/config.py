@@ -1,5 +1,33 @@
 """Project-level constants for reproducible EMG experiments."""
 
+PROJECT_CHANNEL_COUNT = 24
+GRABMYO_DEFAULT_CHANNEL_INDICES_32 = (
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    25,
+    26,
+)
+
 TARGET_CLASSES = {
     "WF": "wrist flexion",
     "WE": "wrist extension",
@@ -29,3 +57,15 @@ BANDPASS_ORDER = 4
 
 N_TEST_PARTICIPANTS = 2
 NOISE_BASE_SEED = 123
+
+
+def resolve_project_channel_indices(total_channels: int) -> tuple[int, ...]:
+    """Returns the default project channel subset for a GRABMyo record."""
+    if total_channels == PROJECT_CHANNEL_COUNT:
+        return tuple(range(total_channels))
+    if total_channels == 32:
+        return GRABMYO_DEFAULT_CHANNEL_INDICES_32
+    raise ValueError(
+        "Unsupported GRABMyo channel layout. "
+        f"Expected {PROJECT_CHANNEL_COUNT} or 32 channels, got {total_channels}."
+    )
