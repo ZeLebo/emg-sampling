@@ -142,12 +142,12 @@ def plot_channel_layout(
     selected_channels: list[int],
     total_channels: int = 24,
 ) -> None:
-    """Plots schematic channel layout on forearm."""
+    """Plots a schematic 4-ring by 6-electrode forearm layout."""
     ax.set_title("Channel layout", fontsize=12, loc="left")
     ax.text(
         0.02,
         0.98,
-        "Approximate channel layout",
+        "Approximate 4-ring x 6-electrode layout",
         transform=ax.transAxes,
         ha="left",
         va="top",
@@ -155,27 +155,51 @@ def plot_channel_layout(
         color="#5c6770",
     )
 
-    forearm = patches.FancyBboxPatch(
-        (0.18, 0.08),
-        0.64,
-        0.84,
-        boxstyle="round,pad=0.03,rounding_size=0.12",
+    forearm_outline = patches.Polygon(
+        [
+            (0.30, 0.06),
+            (0.68, 0.06),
+            (0.80, 0.20),
+            (0.84, 0.50),
+            (0.80, 0.80),
+            (0.68, 0.94),
+            (0.30, 0.94),
+            (0.18, 0.80),
+            (0.14, 0.50),
+            (0.18, 0.20),
+        ],
+        closed=True,
         linewidth=2.0,
         edgecolor="#495057",
         facecolor="#f1f3f5",
+        joinstyle="round",
     )
-    ax.add_patch(forearm)
+    ax.add_patch(forearm_outline)
 
-    rows, cols = 6, 4
-    xs = np.linspace(0.28, 0.72, cols)
-    ys = np.linspace(0.18, 0.82, rows)
+    ring_ys = np.linspace(0.20, 0.80, 4)
+    ring_angles = np.deg2rad([205, 235, 270, 305, 335, 25])
     positions: dict[int, tuple[float, float]] = {}
     channel_id = 1
-    for y in ys:
-        for x in xs:
+    for ring_idx, y in enumerate(ring_ys):
+        ellipse_width = 0.56 + 0.06 * np.cos((ring_idx - 1.5) / 1.5)
+        ellipse_height = 0.13 + 0.01 * ring_idx
+        ax.add_patch(
+            patches.Ellipse(
+                (0.49, y),
+                width=ellipse_width,
+                height=ellipse_height,
+                linewidth=1.0,
+                linestyle="--",
+                edgecolor="#c0c7cf",
+                facecolor="none",
+            )
+        )
+        for angle in ring_angles:
             if channel_id > total_channels:
                 break
-            positions[channel_id] = (float(x), float(y))
+            x = 0.49 + 0.5 * ellipse_width * np.cos(angle)
+            y_pos = y + 0.5 * ellipse_height * np.sin(angle)
+            positions[channel_id] = (float(x), float(y_pos))
             channel_id += 1
 
     selected_set = set(selected_channels)
@@ -190,27 +214,36 @@ def plot_channel_layout(
         )
         ax.add_patch(circle)
         ax.text(
-            x + 0.035,
+            x,
             y,
             f"{channel_id:02d}",
             va="center",
-            ha="left",
-            fontsize=8,
-            color="#212529",
+            ha="center",
+            fontsize=7,
+            color="white" if selected else "#212529",
+            fontweight="bold" if selected else None,
         )
 
     ax.annotate(
         "Wrist",
-        xy=(0.5, 0.06),
-        xytext=(0.82, 0.05),
+        xy=(0.49, 0.05),
+        xytext=(0.82, 0.08),
         arrowprops={"arrowstyle": "->", "linewidth": 1.2, "color": "#495057"},
         fontsize=8,
         color="#495057",
     )
     ax.annotate(
-        "Forearm",
-        xy=(0.18, 0.5),
-        xytext=(0.02, 0.5),
+        "4 rings",
+        xy=(0.86, 0.67),
+        xytext=(0.83, 0.90),
+        arrowprops={"arrowstyle": "->", "linewidth": 1.2, "color": "#495057"},
+        fontsize=8,
+        color="#495057",
+    )
+    ax.annotate(
+        "6 electrodes per ring",
+        xy=(0.72, 0.23),
+        xytext=(0.76, 0.34),
         arrowprops={"arrowstyle": "->", "linewidth": 1.2, "color": "#495057"},
         fontsize=8,
         color="#495057",
@@ -460,14 +493,18 @@ def _find_dataset_example(
 ) -> dict[str, object]:
     df = load_index(INDEX_4CLASSES_CSV)
     split = make_leakage_safe_split(df, mode=split_mode)
-    selected_channels = _load_selected_channels(channel_sweep_csv, split_mode=split_mode, channels_count=12)
+    selected_channel_indices = _load_selected_channels(
+        channel_sweep_csv,
+        split_mode=split_mode,
+        channels_count=12,
+    )
 
     X_train, y_train, _, _ = build_feature_matrix(
         split.final_train_df,
         win_ms=win_ms,
         hop_fraction=HOP_FRACTION,
         filtered=False,
-        channel_indices=selected_channels,
+        channel_indices=selected_channel_indices,
         feature_set="basic",
     )
     clf = train_lda(X_train, y_train)
@@ -478,7 +515,7 @@ def _find_dataset_example(
         if row["y"] != target_label:
             continue
         signal, fs = read_record(row["record_path"])
-        signal = signal[:, selected_channels]
+        signal = signal[:, selected_channel_indices]
         for window in sliding_windows(signal, fs=fs, win_ms=win_ms, hop_ms=hop_ms):
             features = extract_feature_set(window, feature_set="basic").reshape(1, -1)
             predicted_label = int(clf.predict(features)[0])
@@ -490,7 +527,7 @@ def _find_dataset_example(
             return {
                 "signal": window,
                 "fs": fs,
-                "selected_channels": selected_channels,
+                "selected_channels": [channel_idx + 1 for channel_idx in selected_channel_indices],
                 "predicted_gesture": gesture_code,
                 "confidence": confidence,
                 "synthetic": False,
