@@ -133,6 +133,12 @@ scripts/
 uv sync
 ```
 
+Если нужно запускать скрипты через `uv`, используйте формат:
+
+```bash
+uv run python scripts/run_baseline.py
+```
+
 ### Вариант 2. Через pip
 
 ```bash
@@ -141,10 +147,16 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Для Windows:
+Для Windows PowerShell:
 
-```bash
-.venv\Scripts\activate
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Для Windows cmd:
+
+```bat
+.venv\Scripts\activate.bat
 ```
 
 ## Загрузка данных
@@ -159,6 +171,12 @@ wget -r -N -c -np -nH --cut-dirs=2 -P data/raw/grabmyo https://physionet.org/fil
 
 ```bash
 python scripts/make_index_4classes.py
+```
+
+Через `uv`:
+
+```bash
+uv run python scripts/make_index_4classes.py
 ```
 
 После этого должен появиться файл:
@@ -187,6 +205,10 @@ python scripts/make_index_4classes.py
 python scripts/run_baseline.py
 ```
 
+```bash
+uv run python scripts/run_baseline.py
+```
+
 Результат:
 
 `results/tables/baseline_results.csv`
@@ -195,6 +217,10 @@ python scripts/run_baseline.py
 
 ```bash
 python scripts/run_window_sweep.py
+```
+
+```bash
+uv run python scripts/run_window_sweep.py
 ```
 
 Результат:
@@ -207,6 +233,10 @@ python scripts/run_window_sweep.py
 python scripts/run_filtered_vs_raw.py
 ```
 
+```bash
+uv run python scripts/run_filtered_vs_raw.py
+```
+
 Результат:
 
 `results/tables/filtered_vs_raw_results.csv`
@@ -215,6 +245,10 @@ python scripts/run_filtered_vs_raw.py
 
 ```bash
 python scripts/run_noise_experiment.py
+```
+
+```bash
+uv run python scripts/run_noise_experiment.py
 ```
 
 Результат:

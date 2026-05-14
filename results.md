@@ -4,20 +4,20 @@
 
 ## 1) Общий статус проекта
 
-Дата последнего обновления: `YYYY-MM-DD`
+Дата последнего обновления: `2026-05-14`
 
 | Поле | Значение |
 |---|---|
-| Текущая стадия | `Stage 1 / Stage 2 / Stage 3 / Stage 4 / Stage 5 / Stage 6` |
-| Основная цель текущей стадии |  |
-| Что уже завершено |  |
-| Что в работе |  |
-| Что заблокировано |  |
-| Ссылка на основной план | `README.md` / `todo.md` |
+| Текущая стадия | `Stage 2` |
+| Основная цель текущей стадии | Подготовить воспроизводимую инфраструктуру экспериментов по сокращению числа каналов EMG на GRABMyo |
+| Что уже завершено | Проверка структуры проекта, подтверждение наличия GRABMyo, восстановление editable install, подтверждение импорта `src/emg_sampling/__init__.py`, обновление `todo.md` под текущую сессию |
+| Что в работе | P0-документация и подготовка модулей для channel reduction |
+| Что заблокировано | `uv sync` в текущей среде ограничен доступом к глобальному cache и сетевыми ограничениями PyPI |
+| Ссылка на основной план | `goal.md`, `todo.md` |
 
 Короткий прогресс по стадиям:
 
-- [ ] Stage 1 - Baseline pipeline (24 канала)
+- [x] Stage 1 - Baseline pipeline (24 канала)
 - [ ] Stage 2 - Channel reduction (random/ranking/greedy)
 - [ ] Stage 3 - Feature sweep (basic vs extended_td)
 - [ ] Stage 4 - Contextual bandit
@@ -36,6 +36,10 @@
 | Дата | Команда | Стадия | Конфиг | Ключевые метрики | Артефакты | Комментарий |
 |---|---|---|---|---|---|---|
 | `YYYY-MM-DD HH:MM` | ``python scripts/run_baseline.py`` | `Stage 1` | `win=200ms; filtered=on; channels=24; features=basic` | `acc=...; macro_f1=...; latency_ms=...` | ``results/tables/...`` |  |
+| `2026-05-14 10:59` | ``git status --short --branch`` | `Stage 2` | `repo audit before channel reduction` | `branch=master ahead 1; worktree clean except untracked goal.md` | - | Начальная проверка автономной сессии |
+| `2026-05-14 11:03` | ``.\.venv\Scripts\python.exe -m ensurepip --upgrade`` | `Stage 2` | `restore pip in local .venv` | `pip installed successfully` | - | Потребовалось для локальной editable-установки без пересоздания окружения |
+| `2026-05-14 11:05` | ``.\.venv\Scripts\python.exe -m pip install -e . --no-deps --no-build-isolation`` | `Stage 2` | `editable install from local sources; offline build` | `install=ok` | - | Сработало только с `--no-build-isolation` из-за сетевых ограничений |
+| `2026-05-14 11:05` | ``.\.venv\Scripts\python.exe -c "import emg_sampling; print(emg_sampling.__file__)"`` | `Stage 2` | `import verification` | `path=src/emg_sampling/__init__.py` | - | Конфликт пакетов не обнаружен |
 
 ---
 
@@ -83,6 +87,7 @@
 | Дата | Наблюдение | На основе каких запусков/файлов | Практический вывод |
 |---|---|---|---|
 | `YYYY-MM-DD` |  |  |  |
+| `2026-05-14` | Проект можно использовать без пересоздания окружения, если выполнять editable-установку из локальной `.venv` с флагом `--no-build-isolation`. | Команды установки и импорта в журнале запусков | Для дальнейших прогонов в этой среде не нужно зависеть от `uv sync`, пока зависимости уже присутствуют локально. |
 
 Подсказки:
 - Что влияет на Macro-F1 сильнее всего.
@@ -97,6 +102,8 @@
 | Дата | Проблема | Симптом | Причина | Решение | Статус |
 |---|---|---|---|---|---|
 | `YYYY-MM-DD` |  |  |  |  | `open / resolved` |
+| `2026-05-14` | `uv sync` не завершается в текущей среде | Ошибка доступа к `C:\Users\sarta\AppData\Local\uv\cache` и сетевой отказ при запросах к PyPI | Ограничения sandbox/сети и прав на глобальный cache | Использована локальная `.venv`; `pip` восстановлен через `ensurepip`; editable install выполнен с `--no-build-isolation` | `resolved` |
+| `2026-05-14` | Импорт `emg_sampling` изначально не работал | `ModuleNotFoundError` при вызове `.venv\Scripts\python.exe -c ...` | Пакет не был установлен в окружение | Выполнена локальная editable-установка и подтвержден путь `src/emg_sampling/__init__.py` | `resolved` |
 
 Подсказки:
 - Фиксируйте команды/пути, если проблема воспроизводится не всегда.
@@ -110,9 +117,9 @@
 
 | Приоритет | Задача | Критерий готовности | Команда/скрипт | Ожидаемый артефакт | Статус |
 |---|---|---|---|---|---|
-| P0 |  |  |  |  | `todo / in_progress / done` |
-| P1 |  |  |  |  | `todo / in_progress / done` |
-| P2 |  |  |  |  | `todo / in_progress / done` |
+| P0 | Завершить чистку README и журнала перед экспериментами | `README.md` и `results.md` обновлены, импорт подтвержден, сделан коммит `chore: finalize project layout and docs` | ``.\.venv\Scripts\python.exe main.py`` | Обновленные документы и первый коммит сессии | `in_progress` |
+| P1 | Реализовать `selection/` и `run_channel_sweep.py` | Есть random/ranking/greedy/full channel sweep с CSV и минимум одним графиком | ``.\.venv\Scripts\python.exe scripts/run_channel_sweep.py --quick`` | ``results/tables/channel_sweep_results.csv`` | `todo` |
+| P2 | Подготовить feature sweep после channel sweep | Есть `basic` и `extended_td`, сохранены CSV и графики | ``.\.venv\Scripts\python.exe scripts/run_feature_sweep.py --quick`` | ``results/tables/feature_sweep_results.csv`` | `todo` |
 
 Короткий чек перед запуском:
 - [ ] Данные доступны (`data/raw/grabmyo`)
