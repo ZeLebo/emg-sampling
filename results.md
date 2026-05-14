@@ -42,6 +42,7 @@
 | `2026-05-14 11:05` | ``.\.venv\Scripts\python.exe -c "import emg_sampling; print(emg_sampling.__file__)"`` | `Stage 2` | `import verification` | `path=src/emg_sampling/__init__.py` | - | Конфликт пакетов не обнаружен |
 | `2026-05-14 11:11` | ``.\.venv\Scripts\python.exe scripts/make_index_4classes.py`` | `Stage 2` | `GRABMyo 4-class index build` | `rows=3612; participants=43; class_balance=903 per class` | ``data/processed/grabmyo_index_4classes.csv`` | Индекс успешно собран из локально доступных сырых данных |
 | `2026-05-14 11:16` | ``.\.venv\Scripts\python.exe scripts/run_channel_sweep.py --quick --methods full random ranking greedy --channel-counts 3 4 6 8 12 16 24 --random-repeats 3`` | `Stage 2` | `quick subset; win=200ms; filtered=off; features=basic; methods=full/random/ranking/greedy` | `best_macro_f1=0.992277 (greedy, 12ch); full_24_macro_f1=0.889097` | ``results/tables/channel_sweep_results.csv``, ``results/plots/channel_sweep_*.png`` | Quick subset: train participants `1,2,3,4`, test participants `42,43`, total records `48` |
+| `2026-05-14 11:26` | ``.\.venv\Scripts\python.exe scripts/run_feature_sweep.py --quick --channel-method greedy --channel-counts 3 6 8 12 24 --feature-sets basic extended_td`` | `Stage 3` | `quick subset; win=200ms; filtered=off; channel_method=greedy; feature_sets=basic,extended_td` | `best_macro_f1=0.933293 (extended_td, 6ch); full_24_basic_macro_f1=0.883468` | ``results/tables/feature_sweep_results.csv``, ``results/plots/feature_sweep_*.png`` | Для 24 каналов принудительно добавлен `full` baseline из `channel_sweep_results.csv` |
 
 ---
 
@@ -66,10 +67,12 @@
 
 | Channels count | Feature set | Feature vector size | Window (ms) | Filtering | Accuracy | Macro-F1 | Processing time (ms) | Прирост/падение к basic | Источник |
 |---|---|---:|---:|---|---:|---:|---:|---|---|
-| 3 | basic |  |  |  |  |  |  |  | ``results/tables/...`` |
-| 3 | extended_td |  |  |  |  |  |  |  | ``results/tables/...`` |
-| 24 | basic |  |  |  |  |  |  |  | ``results/tables/...`` |
-| 24 | extended_td |  |  |  |  |  |  |  | ``results/tables/...`` |
+| 3 | basic | 12 | 200 | off | 0.836985 | 0.839188 | 0.097643 | baseline for 3-channel greedy subset | ``results/tables/feature_sweep_results.csv`` |
+| 3 | extended_td | 33 | 200 | off | 0.887242 | 0.884690 | 0.098268 | `+0.045502` Macro-F1 к basic | ``results/tables/feature_sweep_results.csv`` |
+| 6 | basic | 24 | 200 | off | 0.916881 | 0.917882 | 0.108806 | baseline for 6-channel greedy subset | ``results/tables/feature_sweep_results.csv`` |
+| 6 | extended_td | 66 | 200 | off | 0.934923 | 0.933293 | 0.110476 | `+0.015411` Macro-F1 к basic | ``results/tables/feature_sweep_results.csv`` |
+| 24 | basic | 96 | 200 | off | 0.882088 | 0.883468 | 0.188386 | baseline full-24 | ``results/tables/feature_sweep_results.csv`` |
+| 24 | extended_td | 264 | 200 | off | 0.896907 | 0.894291 | 0.189851 | `+0.010823` Macro-F1 к basic | ``results/tables/feature_sweep_results.csv`` |
 
 ### 3.4 Bandit (Stage 4)
 
@@ -92,6 +95,7 @@
 | `2026-05-14` | Проект можно использовать без пересоздания окружения, если выполнять editable-установку из локальной `.venv` с флагом `--no-build-isolation`. | Команды установки и импорта в журнале запусков | Для дальнейших прогонов в этой среде не нужно зависеть от `uv sync`, пока зависимости уже присутствуют локально. |
 | `2026-05-14` | В сырых WFDB-записях обнаружены 32 сигнала с именами `F*`, `W*`, `U*`, тогда как проектная постановка требует baseline на 24 каналах. Для согласования Stage 2 временно зафиксирован проектный 24-канальный набор. | Инспекция `wfdb.rdsamp(...)`, `data/raw/grabmyo/1.1.0/readme.txt`, код `resolve_project_channel_indices()` | Полный Stage 2 следует считать воспроизводимым относительно этого 24-канального project subset, а происхождение исключенных каналов нужно отдельно уточнить перед текстом диплома. |
 | `2026-05-14` | На quick subset greedy selection дает существенно лучший Macro-F1, чем full-24 baseline и single-channel ranking. | ``results/tables/channel_sweep_results.csv`` и график ``results/plots/channel_sweep_macro_f1.png`` | Быстрый следующий шаг - перепроверить greedy и ranking на более крупном subset и с filtered-сигналом, чтобы отделить реальный выигрыш от эффекта малого числа участников. |
+| `2026-05-14` | На quick subset набор `extended_td` оказался полезен прежде всего на малом числе каналов: для 3 и 6 каналов Macro-F1 вырос относительно `basic`, тогда как для 8 и 12 каналов прирост исчез. | ``results/tables/feature_sweep_results.csv`` и ``results/plots/feature_sweep_macro_f1.png`` | Если нужен компактный конфиг, имеет смысл сначала тестировать `6ch + extended_td`, а не безусловно расширять признаки для всех размеров подмножества. |
 
 Подсказки:
 - Что влияет на Macro-F1 сильнее всего.
@@ -124,7 +128,8 @@
 |---|---|---|---|---|---|
 | P0 | Завершить чистку README и журнала перед экспериментами | `README.md` и `results.md` обновлены, импорт подтвержден, сделан коммит `chore: finalize project layout and docs` | ``.\.venv\Scripts\python.exe main.py`` | Обновленные документы и первый коммит сессии | `done` |
 | P1 | Реализовать `selection/` и `run_channel_sweep.py` | Есть random/ranking/greedy/full channel sweep с CSV и минимум одним графиком | ``.\.venv\Scripts\python.exe scripts/run_channel_sweep.py --quick`` | ``results/tables/channel_sweep_results.csv`` | `done` |
-| P2 | Подготовить feature sweep после channel sweep | Есть `basic` и `extended_td`, сохранены CSV и графики | ``.\.venv\Scripts\python.exe scripts/run_feature_sweep.py --quick`` | ``results/tables/feature_sweep_results.csv`` | `in_progress` |
+| P2 | Подготовить feature sweep после channel sweep | Есть `basic` и `extended_td`, сохранены CSV и графики | ``.\.venv\Scripts\python.exe scripts/run_feature_sweep.py --quick`` | ``results/tables/feature_sweep_results.csv`` | `done` |
+| P3 | Добавить простой POC-визуализатор жестов на основе LDA | Скрипт сохраняет несколько PNG и, если возможно, GIF | ``.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --quick`` | ``results/plots/poc_hand_*.png`` | `in_progress` |
 
 Короткий чек перед запуском:
 - [ ] Данные доступны (`data/raw/grabmyo`)
@@ -144,3 +149,11 @@
 Лучший результат в quick-режиме показал `greedy` при 12 каналах: `accuracy = 0.992268`, `macro_f1 = 0.992277`, `feature_vector_size = 48`. Для сравнения, базовая конфигурация `full` на 24 каналах дала `accuracy = 0.887887` и `macro_f1 = 0.889097`. Такой отрыв выглядит многообещающим, но пока не должен интерпретироваться как окончательный научный вывод, поскольку быстрый режим использует малое число участников и может переоценивать эффективность greedy-подбора.
 
 Ограничение текущего этапа состоит в неоднозначности исходной разметки каналов GRABMyo. При чтении WFDB-записей обнаружены 32 сигнала (`F*`, `W*`, `U*`), тогда как проектная постановка и baseline ориентированы на 24 канала. Для согласования всех baseline-like экспериментов временно зафиксирован project subset на 24 канала через `resolve_project_channel_indices()`. Перед включением итоговых чисел в диплом необходимо отдельно подтвердить физический смысл исключенных каналов и, при необходимости, повторить Stage 2 на окончательно утвержденной 24-канальной конфигурации.
+
+### Stage 3 - quick feature sweep
+
+После получения quick-результатов по отбору каналов был проведен дополнительный sweep по наборам признаков `basic` и `extended_td`. В качестве опорных конфигураций каналов использовались greedy-подмножества из `channel_sweep_results.csv` для 3, 6, 8 и 12 каналов, а также полный 24-канальный baseline. Это позволило проверить, оправдывает ли расширение признакового пространства себя в сценариях со сжатием числа каналов.
+
+Расширенный набор включал признаки `SSC`, `VAR`, `IEMG`, `WAMP`, `AAC`, `DASDV`, `LOG` в дополнение к `MAV`, `RMS`, `WL`, `ZC`. В quick-режиме на 3 и 6 каналах расширение признаков улучшило Macro-F1 по сравнению с `basic`, причем наиболее заметный выигрыш получен для 6 каналов: `macro_f1 = 0.933293` против `0.917882` у `basic`. Для 8 и 12 каналов выигрыш исчез, а для 12 каналов `extended_td` даже уступил базовому набору при существенно большем размере вектора признаков.
+
+Предварительный практический вывод состоит в том, что `extended_td` не следует рассматривать как универсально лучший вариант. На малых подмножествах каналов расширение признаков может компенсировать потерю пространственной информации, но при 8-12 каналах дополнительная размерность уже не дает стабильного преимущества. Это делает конфигурацию `6 channels + extended_td` интересным кандидатом на дальнейшую проверку как компромисс между качеством и компактностью.
