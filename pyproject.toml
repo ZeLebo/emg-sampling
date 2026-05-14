@@ -1,12 +1,13 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "emg-sampling"
 version = "0.1.0"
-description = "Add your description here"
+description = "EMG signal processing experiments on GRABMyo"
 readme = "README.md"
-
-# ВАЖНО: фиксируем совместимый диапазон
 requires-python = ">=3.12,<3.13"
-
 dependencies = [
     "matplotlib>=3.8,<4",
     "numpy>=1.26,<3",
@@ -17,6 +18,12 @@ dependencies = [
     "tqdm>=4.66,<5",
     "wfdb>=4.1,<5",
 ]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [dependency-groups]
 dev = [

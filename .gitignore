@@ -1,15 +1,39 @@
-# Python-generated files
+# Python cache and build
 __pycache__/
 *.py[oc]
+*.egg-info/
 build/
 dist/
-wheels/
-*.egg-info
-data/
+
+# Environments
+.venv/
+.python-version
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Locks and local notes
 uv.lock
 explanation.md
-.python-version
 todo.md
 
-# Virtual environments
-.venv
+# Data
+/data/raw/*
+!/data/raw/.gitkeep
+/data/processed/*.csv
+
+# Results and artifacts
+/results/*
+!/results/tables/
+!/results/plots/
+!/results/models/
+/results/tables/*
+!/results/tables/.gitkeep
+/results/plots/*
+!/results/plots/.gitkeep
+/results/models/*
+!/results/models/.gitkeep
+
+# Model artifacts
+*.pkl
+*.joblib
