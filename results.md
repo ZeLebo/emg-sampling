@@ -289,9 +289,60 @@ Mean Jaccard between selected channel sets across 4 different train/val folds:
 
 Это пока proof of concept, потому что bandit работает offline по уже рассчитанным CSV, а не в online signal-adaptive loop.
 
-## 12. What Can Be Used in Diploma
+## 12. POC Gesture Visualization
 
-### 12.1 Cautiously usable
+Была переработана демонстрационная визуализация распознавания жестов. В новой версии figure показывает полный путь:
+
+```text
+EMG window by channels -> channel layout -> predicted gesture -> hand pose
+```
+
+Что теперь есть на одной figure:
+
+- заголовок `Predicted gesture: ...`
+- confidence, если он доступен в dataset mode
+- панель `EMG window by channels` с раздельными каналами и подписями `CH xx`
+- простая схема расположения каналов на предплечье
+- заметка `Approximate channel layout`
+- понятная схема руки для `WF`, `WE`, `HO`, `HC`
+- поясняющий текст по жесту внизу
+
+Synthetic mode поддерживается отдельно и явно помечается:
+
+```text
+Synthetic EMG window for visualization only
+```
+
+Это важно, потому что synthetic signal не должен восприниматься как реальная запись GRABMyo.
+
+Созданные файлы:
+
+- `results/plots/poc_hand_WF.png`
+- `results/plots/poc_hand_WE.png`
+- `results/plots/poc_hand_HO.png`
+- `results/plots/poc_hand_HC.png`
+- `results/plots/poc_hand_demo.gif`
+
+Проверенные команды:
+
+```bash
+.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --synthetic --gesture WF
+.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --synthetic --gesture WE
+.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --synthetic --gesture HO
+.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --synthetic --gesture HC
+.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --synthetic --all
+.\.venv\Scripts\python.exe scripts/run_poc_hand_visualization.py --from-dataset --gesture WF --medium
+```
+
+Ограничения:
+
+- channel layout остается schematic и не претендует на анатомически точное расположение электродов;
+- hand drawing остается 2D proof of concept, а не биомеханической моделью;
+- dataset mode сейчас ориентирован на поиск корректно предсказанного окна, а не на потоковую интерактивную анимацию.
+
+## 13. What Can Be Used in Diploma
+
+### 13.1 Cautiously usable
 
 Можно осторожно использовать:
 
@@ -302,7 +353,7 @@ Mean Jaccard between selected channel sets across 4 different train/val folds:
 - вывод, что `ranking` стабильнее `greedy`;
 - вывод, что filtering полезнее для very low-channel greedy setups, чем для full baseline.
 
-### 12.2 Proof of concept only
+### 13.2 Proof of concept only
 
 Пока только proof of concept:
 
@@ -311,7 +362,7 @@ Mean Jaccard between selected channel sets across 4 different train/val folds:
 - offline bandit simulation;
 - точный выбор "лучшего" reduced subset на основе greedy.
 
-## 13. Problems and Resolutions
+## 14. Problems and Resolutions
 
 | Date | Problem | Cause | Resolution | Status |
 |---|---|---|---|---|
@@ -319,7 +370,7 @@ Mean Jaccard between selected channel sets across 4 different train/val folds:
 | `2026-05-14` | test leakage in channel selection | ranking and greedy used final test split | introduced leakage-safe selection protocol | resolved |
 | `2026-05-14` | mismatch between raw 32 signals and project 24-channel setup | dataset layout differs from project assumption | fixed project subset through `resolve_project_channel_indices()` | resolved |
 
-## 14. Commits
+## 15. Commits
 
 Коммиты, относящиеся к этой линии экспериментов:
 
@@ -330,11 +381,12 @@ Mean Jaccard between selected channel sets across 4 different train/val folds:
 - `feat: add channel selection stability analysis`
 - `feat: add offline bandit simulation`
 - `feat: add simple hand movement proof of concept`
+- `feat: improve hand gesture poc visualization`
 - `docs: format results log for diploma use`
 
-## 15. Final Summary
+## 16. Final Summary
 
-### 15.1 Leakage checks performed
+### 16.1 Leakage checks performed
 
 Выполненные проверки:
 
@@ -344,11 +396,11 @@ Mean Jaccard between selected channel sets across 4 different train/val folds:
 4. Повторно сгенерированы quick CSV и plots после исправления.
 5. Сгенерированы medium CSV и plots после исправления.
 
-### 15.2 Was there test leakage?
+### 16.2 Was there test leakage?
 
 Да. В предыдущей реализации ranking и greedy использовали test set для выбора каналов. В текущей версии это исправлено, и `selection_uses_test=false` сохранено в новых CSV.
 
-### 15.3 How did medium results change the old quick conclusion?
+### 16.3 How did medium results change the old quick conclusion?
 
 Изменение принципиальное:
 
@@ -356,11 +408,11 @@ Mean Jaccard between selected channel sets across 4 different train/val folds:
 - medium leakage-safe results это не подтвердили;
 - наиболее надежная конфигурация сейчас - `24 channels`, особенно с `extended_td`.
 
-### 15.4 Stable channels
+### 16.4 Stable channels
 
 Наиболее устойчиво повторяются каналы из ranking-based selection. Особенно стабильно появляются каналы `6`, `7`, `14`, `15`, а на больших наборах также `5` и `13`.
 
-### 15.5 Next run
+### 16.5 Next run
 
 Следующим запуском стоит:
 
