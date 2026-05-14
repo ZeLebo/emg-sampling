@@ -6,7 +6,7 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 
 from emg_sampling.experiments.channel_sweep import run_channel_sweep
-from emg_sampling.paths import CHANNEL_SWEEP_CSV, INDEX_4CLASSES_CSV
+from emg_sampling.paths import CHANNEL_SWEEP_CSV, CHANNEL_SWEEP_MEDIUM_CSV, INDEX_4CLASSES_CSV
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=CHANNEL_SWEEP_CSV,
+        default=None,
         help="Path to output CSV file.",
     )
     return parser.parse_args()
@@ -46,6 +46,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    output = args.output
+    plot_prefix = "channel_sweep"
+    if output is None:
+        if args.medium:
+            output = CHANNEL_SWEEP_MEDIUM_CSV
+            plot_prefix = "channel_sweep_medium"
+        else:
+            output = CHANNEL_SWEEP_CSV
     result = run_channel_sweep(
         index_csv=INDEX_4CLASSES_CSV,
         win_ms=args.window_ms,
@@ -56,7 +64,8 @@ def main() -> None:
         max_greedy_channels=args.max_greedy_channels,
         quick=args.quick,
         medium=args.medium,
-        output_csv=args.output,
+        output_csv=output,
+        plot_prefix=plot_prefix,
     )
     print(result.to_string(index=False))
 
