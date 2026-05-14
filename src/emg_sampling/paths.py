@@ -26,6 +26,7 @@ FEATURE_SWEEP_MEDIUM_CSV = TABLES_DIR / "feature_sweep_medium_results.csv"
 CHANNEL_SWEEP_FILTERED_COMPARISON_CSV = TABLES_DIR / "channel_sweep_filtered_comparison.csv"
 CHANNEL_STABILITY_CSV = TABLES_DIR / "channel_stability_results.csv"
 BANDIT_SIMULATION_CSV = TABLES_DIR / "bandit_simulation_results.csv"
+REPEATED_MEDIUM_EVALUATION_CSV = TABLES_DIR / "repeated_medium_evaluation_results.csv"
 
 
 def ensure_project_dirs() -> None:

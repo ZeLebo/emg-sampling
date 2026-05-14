@@ -1,6 +1,40 @@
 """Project-level constants for reproducible EMG experiments."""
 
 PROJECT_CHANNEL_COUNT = 24
+GRABMYO_SIGNAL_NAMES_32 = (
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6",
+    "F7",
+    "F8",
+    "F9",
+    "F10",
+    "F11",
+    "F12",
+    "F13",
+    "F14",
+    "F15",
+    "F16",
+    "U1",
+    "W1",
+    "W2",
+    "W3",
+    "W4",
+    "W5",
+    "W6",
+    "U2",
+    "U3",
+    "W7",
+    "W8",
+    "W9",
+    "W10",
+    "W11",
+    "W12",
+    "U4",
+)
 GRABMYO_DEFAULT_CHANNEL_INDICES_32 = (
     0,
     1,
@@ -26,6 +60,9 @@ GRABMYO_DEFAULT_CHANNEL_INDICES_32 = (
     22,
     25,
     26,
+)
+PROJECT_CHANNEL_NAMES_24 = tuple(
+    GRABMYO_SIGNAL_NAMES_32[index] for index in GRABMYO_DEFAULT_CHANNEL_INDICES_32
 )
 
 TARGET_CLASSES = {
@@ -67,6 +104,18 @@ def resolve_project_channel_indices(total_channels: int) -> tuple[int, ...]:
         return tuple(range(total_channels))
     if total_channels == 32:
         return GRABMYO_DEFAULT_CHANNEL_INDICES_32
+    raise ValueError(
+        "Unsupported GRABMyo channel layout. "
+        f"Expected {PROJECT_CHANNEL_COUNT} or 32 channels, got {total_channels}."
+    )
+
+
+def resolve_project_channel_names(total_channels: int) -> tuple[str, ...]:
+    """Returns signal names for the project channel subset."""
+    if total_channels == PROJECT_CHANNEL_COUNT:
+        return PROJECT_CHANNEL_NAMES_24
+    if total_channels == 32:
+        return PROJECT_CHANNEL_NAMES_24
     raise ValueError(
         "Unsupported GRABMyo channel layout. "
         f"Expected {PROJECT_CHANNEL_COUNT} or 32 channels, got {total_channels}."

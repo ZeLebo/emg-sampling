@@ -41,17 +41,22 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Path to output CSV file.",
     )
+    parser.add_argument(
+        "--plot-prefix",
+        default=None,
+        help="Prefix for saved plots. Defaults to channel_sweep or channel_sweep_medium.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     output = args.output
-    plot_prefix = "channel_sweep"
+    plot_prefix = args.plot_prefix or "channel_sweep"
     if output is None:
         if args.medium:
             output = CHANNEL_SWEEP_MEDIUM_CSV
-            plot_prefix = "channel_sweep_medium"
+            plot_prefix = args.plot_prefix or "channel_sweep_medium"
         else:
             output = CHANNEL_SWEEP_CSV
     result = run_channel_sweep(

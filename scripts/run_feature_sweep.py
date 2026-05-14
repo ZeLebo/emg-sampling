@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--channel-method",
         default="greedy",
-        choices=["greedy", "ranking", "random"],
+        choices=["greedy", "ranking", "random", "full"],
         help="Channel selection method source taken from channel_sweep_results.csv",
     )
     parser.add_argument(
@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Path to output CSV file.",
     )
+    parser.add_argument(
+        "--plot-prefix",
+        default=None,
+        help="Prefix for saved plots. Defaults to feature_sweep or feature_sweep_medium.",
+    )
     return parser.parse_args()
 
 
@@ -53,13 +58,13 @@ def main() -> None:
     args = parse_args()
     output = args.output
     channel_sweep_csv = args.channel_sweep_csv
-    plot_prefix = "feature_sweep"
+    plot_prefix = args.plot_prefix or "feature_sweep"
+    if args.medium and channel_sweep_csv == CHANNEL_SWEEP_CSV:
+        channel_sweep_csv = CHANNEL_SWEEP_MEDIUM_CSV
     if output is None:
         if args.medium:
             output = FEATURE_SWEEP_MEDIUM_CSV
-            plot_prefix = "feature_sweep_medium"
-            if channel_sweep_csv == CHANNEL_SWEEP_CSV:
-                channel_sweep_csv = CHANNEL_SWEEP_MEDIUM_CSV
+            plot_prefix = args.plot_prefix or "feature_sweep_medium"
         else:
             output = FEATURE_SWEEP_CSV
     result = run_feature_sweep(
