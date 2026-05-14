@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from emg_sampling.config import resolve_project_channel_indices
+from emg_sampling.features.feature_sets import extract_feature_set, get_feature_names
 from emg_sampling.features.time_domain import extract_td_features, sliding_windows
 from emg_sampling.models.lda_baseline import evaluate_classifier, train_lda
 from emg_sampling.preprocessing.filters import preprocess_signal
@@ -21,6 +22,7 @@ def build_feature_matrix(
     hop_fraction: float,
     filtered: bool = False,
     channel_indices: Sequence[int] | None = None,
+    feature_set: str = "basic",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Builds feature matrix and labels from record index.
 
@@ -30,6 +32,7 @@ def build_feature_matrix(
         hop_fraction: Fraction of window used as hop.
         filtered: If True applies preprocessing before windowing.
         channel_indices: Optional channel subset to keep before feature extraction.
+        feature_set: Named feature set from emg_sampling.features.feature_sets.
 
     Returns:
         X: Feature matrix.
@@ -68,7 +71,7 @@ def build_feature_matrix(
         hop_ms = win_ms * hop_fraction
         for window in sliding_windows(signal, fs=fs, win_ms=win_ms, hop_ms=hop_ms):
             t0 = time.perf_counter()
-            features = extract_td_features(window)
+            features = extract_feature_set(window, feature_set=feature_set)
             t1 = time.perf_counter()
 
             X_list.append(features)
@@ -101,6 +104,7 @@ def evaluate_split(
     hop_fraction: float,
     filtered: bool,
     channel_indices: Sequence[int] | None = None,
+    feature_set: str = "basic",
 ) -> dict[str, float | int | str | bool]:
     """Runs one train/test evaluation for selected parameters."""
     X_train, y_train, _, _ = build_feature_matrix(
@@ -109,6 +113,7 @@ def evaluate_split(
         hop_fraction=hop_fraction,
         filtered=filtered,
         channel_indices=channel_indices,
+        feature_set=feature_set,
     )
     X_test, y_test, feat_times, preprocess_times_ms = build_feature_matrix(
         test_df,
@@ -116,6 +121,7 @@ def evaluate_split(
         hop_fraction=hop_fraction,
         filtered=filtered,
         channel_indices=channel_indices,
+        feature_set=feature_set,
     )
 
     row: dict[str, float | int | str | bool] = {
@@ -126,6 +132,7 @@ def evaluate_split(
         "n_test_windows": int(X_test.shape[0]),
         "n_features": int(X_train.shape[1]) if X_train.ndim == 2 else 0,
         "algorithmic_delay_ms": float(win_ms),
+        "feature_set": feature_set,
     }
 
     feat_mean_ms, feat_p95_ms = summarize_times(feat_times, unit_scale=1000.0)

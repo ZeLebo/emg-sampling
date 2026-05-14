@@ -7,6 +7,19 @@ from collections.abc import Iterator
 import numpy as np
 
 BASIC_TD_FEATURE_NAMES = ("mav", "rms", "wl", "zc")
+EXTENDED_TD_FEATURE_NAMES = (
+    "mav",
+    "rms",
+    "wl",
+    "zc",
+    "ssc",
+    "var",
+    "iemg",
+    "wamp",
+    "aac",
+    "dasdv",
+    "log",
+)
 
 
 def sliding_windows(
@@ -52,16 +65,51 @@ def extract_td_features(window: np.ndarray) -> np.ndarray:
     if window.ndim != 2:
         raise ValueError(f"Expected 2D window, got shape {window.shape}")
 
-    eps = 1e-8
-    mav = np.mean(np.abs(window), axis=0)
-    rms = np.sqrt(np.mean(window**2, axis=0) + eps)
-    wl = np.sum(np.abs(np.diff(window, axis=0)), axis=0)
+    return extract_td_feature_set(window, BASIC_TD_FEATURE_NAMES)
 
+
+def extract_td_feature_set(
+    window: np.ndarray,
+    feature_names: tuple[str, ...],
+    threshold: float = 1e-3,
+) -> np.ndarray:
+    """Extracts a configurable set of time-domain features from one window."""
+    if window.ndim != 2:
+        raise ValueError(f"Expected 2D window, got shape {window.shape}")
+
+    eps = 1e-8
     s1 = window[:-1]
     s2 = window[1:]
-    zc = np.sum((s1 * s2) < 0, axis=0)
+    diff = np.diff(window, axis=0)
+    diff_abs = np.abs(diff)
+    second_diff = np.diff(window, n=2, axis=0)
 
-    return np.concatenate([mav, rms, wl, zc], axis=0).astype(np.float32, copy=False)
+    feature_map: dict[str, np.ndarray] = {
+        "mav": np.mean(np.abs(window), axis=0),
+        "rms": np.sqrt(np.mean(window**2, axis=0) + eps),
+        "wl": np.sum(diff_abs, axis=0),
+        "zc": np.sum(((s1 * s2) < 0) & (np.abs(s1 - s2) >= threshold), axis=0),
+        "ssc": np.sum(
+            (((window[1:-1] - window[:-2]) * (window[1:-1] - window[2:])) > 0)
+            & (np.abs(second_diff) >= threshold),
+            axis=0,
+        ),
+        "var": np.var(window, axis=0),
+        "iemg": np.sum(np.abs(window), axis=0),
+        "wamp": np.sum(diff_abs >= threshold, axis=0),
+        "aac": np.mean(diff_abs, axis=0),
+        "dasdv": np.sqrt(np.mean(diff**2, axis=0) + eps),
+        "log": np.exp(np.mean(np.log(np.abs(window) + eps), axis=0)),
+    }
+
+    unknown = set(feature_names).difference(feature_map)
+    if unknown:
+        raise ValueError(f"Unknown feature names: {sorted(unknown)}")
+
+    return np.concatenate([feature_map[name] for name in feature_names], axis=0).astype(
+        np.float32,
+        copy=False,
+    )
 
 
 def get_feature_column_indices(

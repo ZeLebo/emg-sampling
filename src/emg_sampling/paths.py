@@ -20,6 +20,7 @@ WINDOW_SWEEP_CSV = TABLES_DIR / "window_sweep_results.csv"
 FILTERED_VS_RAW_CSV = TABLES_DIR / "filtered_vs_raw_results.csv"
 NOISE_EXPERIMENT_CSV = TABLES_DIR / "noise_experiment_results.csv"
 CHANNEL_SWEEP_CSV = TABLES_DIR / "channel_sweep_results.csv"
+FEATURE_SWEEP_CSV = TABLES_DIR / "feature_sweep_results.csv"
 
 
 def ensure_project_dirs() -> None:
