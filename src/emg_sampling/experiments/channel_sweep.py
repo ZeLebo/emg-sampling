@@ -171,6 +171,7 @@ def run_channel_sweep(
     medium: bool = False,
     output_csv: Path = CHANNEL_SWEEP_CSV,
     plot_prefix: str = "channel_sweep",
+    save_plots_flag: bool = True,
 ) -> pd.DataFrame:
     """Runs channel-reduction sweep and saves the results table."""
     ensure_project_dirs()
@@ -346,5 +347,6 @@ def run_channel_sweep(
     )
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     out_df.to_csv(output_csv, index=False)
-    save_channel_sweep_plots(out_df, plots_dir=PLOTS_DIR, prefix=plot_prefix)
+    if save_plots_flag:
+        save_channel_sweep_plots(out_df, plots_dir=PLOTS_DIR, prefix=plot_prefix)
     return out_df.reset_index(drop=True)
