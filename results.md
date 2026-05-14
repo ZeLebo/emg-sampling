@@ -175,6 +175,8 @@
 - `4082ec9` - `docs: update experiment results log`
 - `dfba5f8` - `feat: add extended time-domain features and feature sweep`
 - `2bcc832` - `docs: update experiment results log`
+- `efb2f6f` - `feat: add simple hand movement proof of concept`
+- `fd04674` - `docs: update experiment results log`
 
 Какие стадии закрыты:
 - `Stage 1` - baseline pipeline считался уже готовым к началу сессии
